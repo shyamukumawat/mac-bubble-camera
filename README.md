@@ -11,13 +11,15 @@
 
 ## Features
 
-1. **Circular Floating Bubble:** A clean, borderless, circular webcam bubble that floats over all windows, Terminal, Chrome, code editors, and Full-screen Spaces.
-2. **Apple Continuity Camera Support:** Automatically detects and pairs with your connected **iPhone** for studio-grade 4K facecam, or defaults to your built-in Mac camera.
-3. **Instant Full-Screen Toggle (Intro / Outro Mode):** Seamlessly transition between a small corner bubble and full-screen video with a simple double-click or by pressing `F` / `Space`. Designed specifically for YouTube and tutorial intros/outros.
-4. **Smooth Trackpad Resizing:** Scroll up or down with two fingers over the bubble to resize dynamically from 130px up to 650px.
-5. **Keyboard Shortcuts:** Quick presets (`1`, `2`, `3`), full screen toggle (`F` / `Space`), and dismiss (`Esc`).
-6. **macOS Menu Bar Quick Controls:** Status bar item in the macOS menu bar for quick switching, camera selection, and resizing.
-7. **Zero Bloat & Zero CPU Overhead:** Built entirely with native AppKit and AVFoundation. No Electron, no web runtime, and zero battery drain.
+1. **Multiple Shapes (Circle, 16:9 Landscape, 9:16 Portrait Shorts/Reels, 4:3, Rounded Square):** Switch instantly between a circular bubble, standard 16:9 widescreen, 9:16 vertical portrait (for TikTok, Instagram Reels, and YouTube Shorts), 4:3 standard, or rounded square.
+2. **AI Virtual Background & Custom Image Replacement:** Replace the room background behind you in real time using Apple's Neural Engine Vision person segmentation. Choose any custom image file (`.png`, `.jpg`, `.jpeg`, `.heic`), background blur, or sleek studio gradients.
+3. **Interactive Edge & Corner Drag Resizing:** Hover near any edge or corner to see dynamic resize cursors. Drag left/right to adjust width, top/bottom to adjust height, or drag corners to extend both. Hold `Shift` while dragging to lock aspect ratio.
+4. **Apple Continuity Camera Support:** Automatically detects and pairs with your connected **iPhone** for studio-grade 4K facecam, or defaults to your built-in Mac camera.
+5. **Instant Full-Screen Toggle (Intro / Outro Mode):** Seamlessly transition between a small corner bubble and full-screen video with a simple double-click or by pressing `F` / `Space`. Designed specifically for YouTube and tutorial intros/outros.
+6. **Smooth Trackpad Resizing:** Scroll up or down with two fingers over the bubble to resize dynamically from 120px up to 900px while maintaining the correct aspect ratio.
+7. **Keyboard Shortcuts:** Quick presets (`1`, `2`, `3`), shape toggle (`S`), background cycle (`V`), background style toggle (`G`), full screen toggle (`F` / `Space`), white border toggle (`B`), and dismiss (`Esc`).
+8. **macOS Menu Bar Quick Controls:** Status bar item in the macOS menu bar for quick switching, shape selection, background style & image selection, camera selection, and resizing.
+9. **Zero Bloat & Zero CPU Overhead:** Built entirely with native AppKit, AVFoundation, and Apple Vision framework. No Electron, no web runtime, and zero battery drain.
 
 ---
 
@@ -25,13 +27,19 @@
 
 | Action | Shortcut / Gesture |
 | :--- | :--- |
+| **Move Anywhere** | **Click & Drag** inside the bubble |
+| **Adjust Width / Height** | **Drag Edges / Corners** (hover over border to see resize cursor) |
+| **Lock Aspect Ratio while Dragging** | Hold **`Shift`** while dragging edge or corner |
+| **Switch Shape (16:9 / 9:16 / Circle / Square)** | **`S`** or Right-click Menu / Menu Bar |
+| **Cycle Background Preset** | **`V`** or Right-click Menu / Menu Bar |
+| **Toggle Background Style (Backdrop Frame ⇄ AI Cutout)** | **`G`** or Right-click Menu / Menu Bar |
+| **Set Custom Background Image** | Right-click Menu ➔ **Background** ➔ **Choose Custom Image...** |
 | **Toggle Full Screen / Bubble** | **Double Click** or **`F`** / **`Space`** |
 | **Exit Full Screen** | **`Esc`** or **Double Click** |
 | **Smooth Resize** | **Trackpad Two-Finger Scroll** (Up / Down) |
-| **Small Bubble (170px)** | **`1`** |
-| **Medium Bubble (280px)** | **`2`** |
-| **Large Bubble (420px)** | **`3`** |
-| **Move Anywhere** | **Click & Drag** anywhere on the bubble |
+| **Small Preset** | **`1`** |
+| **Medium Preset** | **`2`** |
+| **Large Preset** | **`3`** |
 | **Toggle White Border** | Right-click Menu or **`B`** |
 | **Switch Camera Source** | Right-click Menu or Menu Bar icon |
 | **Quit App** | **`Q`** (when focused) or Right-click Menu |

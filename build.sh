@@ -23,6 +23,7 @@ codesign --force --deep -s - "${BUILD_DIR}/${APP_NAME}.app"
 
 echo "==> Installing to /Applications..."
 killall "${APP_NAME}" 2>/dev/null || true
+sleep 0.5
 rm -rf "${TARGET_APP}"
 cp -R "${BUILD_DIR}/${APP_NAME}.app" /Applications/
 
