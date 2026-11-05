@@ -37,6 +37,8 @@
 | **Toggle Full Screen / Bubble** | **Double Click** or **`F`** / **`Space`** |
 | **Exit Full Screen** | **`Esc`** or **Double Click** |
 | **Smooth Resize** | **Trackpad Two-Finger Scroll** (Up / Down) |
+| **Camera Zoom In / Out (digital, 1×–4×)** | **Trackpad Pinch**, **`+`** / **`-`**, or **`⌥ Option` + Scroll** |
+| **Reset Zoom** | **`0`** or Right-click Menu ➔ **Zoom** |
 | **Small Preset** | **`1`** |
 | **Medium Preset** | **`2`** |
 | **Large Preset** | **`3`** |

@@ -169,6 +169,16 @@ class BubbleView: NSView, AVCaptureVideoDataOutputSampleBufferDelegate {
     let processingQueue = DispatchQueue(label: "com.camerabubble.videoprocessing", qos: .userInteractive)
     var isProcessingFrame = false
 
+    // Digital Zoom (center crop). macOS has no hardware zoom API for capture devices.
+    static let minZoom: CGFloat = 1.0
+    static let maxZoom: CGFloat = 4.0
+    static let zoomPresets: [CGFloat] = [1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0]
+    var zoomFactor: CGFloat = {
+        let saved = UserDefaults.standard.double(forKey: "CameraZoomFactor")
+        return saved >= 1.0 ? min(CGFloat(saved), 4.0) : 1.0
+    }()
+    let zoomLabelLayer = CATextLayer()
+
     var isBackgroundActive: Bool {
         return currentBackgroundPreset != .none
     }
@@ -231,6 +241,17 @@ class BubbleView: NSView, AVCaptureVideoDataOutputSampleBufferDelegate {
         processedLayer.contentsGravity = .resizeAspectFill
         processedLayer.isHidden = true
         cameraClipLayer.addSublayer(processedLayer)
+
+        // Transient zoom indicator ("1.5×")
+        zoomLabelLayer.fontSize = 13
+        zoomLabelLayer.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
+        zoomLabelLayer.foregroundColor = NSColor.white.cgColor
+        zoomLabelLayer.backgroundColor = NSColor.black.withAlphaComponent(0.55).cgColor
+        zoomLabelLayer.alignmentMode = .center
+        zoomLabelLayer.cornerRadius = 10
+        zoomLabelLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
+        zoomLabelLayer.opacity = 0
+        self.layer?.addSublayer(zoomLabelLayer)
 
         updateAppearance()
     }
@@ -334,8 +355,85 @@ class BubbleView: NSView, AVCaptureVideoDataOutputSampleBufferDelegate {
             processedLayer.isHidden = false
         }
 
+        // Digital zoom: enlarge the live preview inside the clip layer (which masks the overflow).
+        // AI Cutout output is already cropped during processing, so processedLayer stays unscaled.
+        previewLayer?.frame = zoomedRect(for: cameraClipLayer.bounds)
+        zoomLabelLayer.frame = CGRect(x: bounds.midX - 32, y: bounds.midY - 12, width: 64, height: 24)
+
         CATransaction.commit()
         window?.invalidateShadow()
+    }
+
+    // MARK: - Digital Zoom
+
+    func zoomedRect(for rect: CGRect) -> CGRect {
+        let w = rect.width * zoomFactor
+        let h = rect.height * zoomFactor
+        return CGRect(x: rect.midX - w / 2, y: rect.midY - h / 2, width: w, height: h)
+    }
+
+    func setZoom(_ value: CGFloat, showIndicator: Bool = true) {
+        let clamped = min(BubbleView.maxZoom, max(BubbleView.minZoom, value))
+        // Snap to 1× when very close so it's easy to get back to the full frame
+        zoomFactor = abs(clamped - 1.0) < 0.03 ? 1.0 : clamped
+        UserDefaults.standard.set(Double(zoomFactor), forKey: "CameraZoomFactor")
+        updateAppearance()
+        if showIndicator { flashZoomIndicator() }
+    }
+
+    @objc func zoomIn() { setZoom(zoomFactor + 0.25) }
+    @objc func zoomOut() { setZoom(zoomFactor - 0.25) }
+    @objc func resetZoom() { setZoom(1.0) }
+
+    @objc func changeZoomMenuItem(_ sender: NSMenuItem) {
+        if let value = sender.representedObject as? CGFloat {
+            setZoom(value)
+        }
+    }
+
+    static func zoomTitle(_ value: CGFloat) -> String {
+        let text = value == value.rounded() ? String(format: "%.0f", value) : String(format: "%g", Double((value * 100).rounded() / 100))
+        return "\(text)×"
+    }
+
+    func flashZoomIndicator() {
+        zoomLabelLayer.string = BubbleView.zoomTitle(zoomFactor)
+        zoomLabelLayer.removeAllAnimations()
+        zoomLabelLayer.opacity = 1
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 1
+        fade.toValue = 0
+        fade.beginTime = CACurrentMediaTime() + 0.8
+        fade.duration = 0.4
+        fade.fillMode = .backwards
+        zoomLabelLayer.add(fade, forKey: "fade")
+        zoomLabelLayer.opacity = 0
+    }
+
+    /// Builds the "Zoom" submenu shared by the right-click menu and the menu bar.
+    func buildZoomMenuItem(target: AnyObject, action: Selector) -> NSMenuItem {
+        let zoomSubmenu = NSMenu()
+        for value in BubbleView.zoomPresets {
+            let item = NSMenuItem(title: BubbleView.zoomTitle(value), action: action, keyEquivalent: "")
+            item.target = target
+            item.representedObject = value
+            if abs(value - zoomFactor) < 0.01 { item.state = .on }
+            zoomSubmenu.addItem(item)
+        }
+        zoomSubmenu.addItem(NSMenuItem.separator())
+        let inItem = NSMenuItem(title: "Zoom In (+)", action: #selector(zoomIn), keyEquivalent: "")
+        inItem.target = self
+        zoomSubmenu.addItem(inItem)
+        let outItem = NSMenuItem(title: "Zoom Out (−)", action: #selector(zoomOut), keyEquivalent: "")
+        outItem.target = self
+        zoomSubmenu.addItem(outItem)
+        let resetItem = NSMenuItem(title: "Reset Zoom (0)", action: #selector(resetZoom), keyEquivalent: "")
+        resetItem.target = self
+        zoomSubmenu.addItem(resetItem)
+
+        let zoomItem = NSMenuItem(title: "Zoom: \(BubbleView.zoomTitle(zoomFactor)) (Pinch / + / −)", action: nil, keyEquivalent: "")
+        zoomItem.submenu = zoomSubmenu
+        return zoomItem
     }
 
     override func layout() {
@@ -388,6 +486,14 @@ class BubbleView: NSView, AVCaptureVideoDataOutputSampleBufferDelegate {
             let input = try AVCaptureDeviceInput(device: device)
             if newSession.canAddInput(input) {
                 newSession.addInput(input)
+            }
+
+            // Use the highest resolution the camera offers so digital zoom stays sharp.
+            for preset in [AVCaptureSession.Preset.hd4K3840x2160, .hd1920x1080, .high] {
+                if newSession.canSetSessionPreset(preset) {
+                    newSession.sessionPreset = preset
+                    break
+                }
             }
 
             // Video data output for AI background segmentation (used in AI Cutout mode)
@@ -464,6 +570,18 @@ class BubbleView: NSView, AVCaptureVideoDataOutputSampleBufferDelegate {
         let scaleX = camImage.extent.width / maskImage.extent.width
         let scaleY = camImage.extent.height / maskImage.extent.height
         maskImage = maskImage.transformed(by: CGAffineTransform(scaleX: scaleX, y: scaleY))
+
+        // Digital zoom: crop camera + mask to the centered region before compositing
+        let zoom = zoomFactor
+        if zoom > 1.0 {
+            let full = camImage.extent
+            let cropSize = CGSize(width: full.width / zoom, height: full.height / zoom)
+            let cropRect = CGRect(x: full.midX - cropSize.width / 2, y: full.midY - cropSize.height / 2,
+                                  width: cropSize.width, height: cropSize.height).integral
+            let toOrigin = CGAffineTransform(translationX: -cropRect.minX, y: -cropRect.minY)
+            camImage = camImage.cropped(to: cropRect).transformed(by: toOrigin)
+            maskImage = maskImage.cropped(to: cropRect).transformed(by: toOrigin)
+        }
 
         // Prepare background image
         let targetSize = camImage.extent.size
@@ -985,10 +1103,26 @@ class BubbleView: NSView, AVCaptureVideoDataOutputSampleBufferDelegate {
             setMedium()
         } else if char == "3" {
             setLarge()
+        } else if char == "=" || char == "+" {
+            zoomIn()
+        } else if char == "-" || char == "_" {
+            zoomOut()
+        } else if char == "0" {
+            resetZoom()
         }
     }
 
+    override func magnify(with event: NSEvent) {
+        setZoom(zoomFactor * (1.0 + event.magnification))
+    }
+
     override func scrollWheel(with event: NSEvent) {
+        // Option (⌥) + scroll zooms the camera (handy with a mouse wheel); works in full screen too
+        if event.modifierFlags.contains(.option) {
+            let d = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY * 0.01 : event.deltaY * 0.1
+            if d != 0 { setZoom(zoomFactor * (1.0 + d)) }
+            return
+        }
         if isFullScreen { return }
         let delta = event.deltaY + event.scrollingDeltaY
         if abs(delta) > 0.3 {
@@ -1115,6 +1249,10 @@ class BubbleView: NSView, AVCaptureVideoDataOutputSampleBufferDelegate {
         let large = NSMenuItem(title: "Large (\(w3)x\(h3))", action: #selector(setLarge), keyEquivalent: "3")
         large.target = self
         menu.addItem(large)
+
+        menu.addItem(NSMenuItem.separator())
+
+        menu.addItem(buildZoomMenuItem(target: self, action: #selector(changeZoomMenuItem(_:))))
 
         menu.addItem(NSMenuItem.separator())
 
@@ -1343,6 +1481,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let s3 = NSMenuItem(title: "Large (\(w3)x\(h3))", action: #selector(menuLarge), keyEquivalent: "3")
         s3.target = self
         menu.addItem(s3)
+
+        menu.addItem(NSMenuItem.separator())
+
+        menu.addItem(bubbleView.buildZoomMenuItem(target: bubbleView, action: #selector(BubbleView.changeZoomMenuItem(_:))))
 
         menu.addItem(NSMenuItem.separator())
 
